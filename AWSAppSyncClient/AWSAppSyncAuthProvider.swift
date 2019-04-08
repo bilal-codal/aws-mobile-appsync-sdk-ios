@@ -3,6 +3,8 @@
 //  AWSAppSync
 //
 
+import Foundation
+
 // For using OIDC based authorization, this protocol needs to be implemented and passed to configuration object.
 // Use this for cases where the OIDC token needs to be fetched asynchronously and requires a callback
 public protocol AWSOIDCAuthProviderAsync: AWSOIDCAuthProvider {
@@ -40,3 +42,4 @@ public protocol AWSCognitoUserPoolsAuthProvider: AWSOIDCAuthProvider {
 public protocol AWSAPIKeyAuthProvider {
     func getAPIKey() -> String
 }
+

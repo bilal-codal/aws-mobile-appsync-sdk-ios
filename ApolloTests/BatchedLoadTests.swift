@@ -30,11 +30,6 @@ private final class MockBatchedNormalizedCache: NormalizedCache {
       }
     }
   }
-
-    func clear() -> Promise<Void> {
-        records.clear()
-        return Promise(fulfilled: ())
-    }
 }
 
 class BatchedLoadTests: XCTestCase {  

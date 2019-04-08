@@ -11,7 +11,6 @@ class FetchQueryTests: XCTestCase {
       "hero": [
         "name": "R2-D2",
         "__typename": "Droid",
-        "optionalString": NSNull()
       ]
     ]
 
@@ -22,8 +21,7 @@ class FetchQueryTests: XCTestCase {
         "data": [
           "hero": [
             "name": "Luke Skywalker",
-            "__typename": "Human",
-            "optionalString": NSNull()
+            "__typename": "Human"
           ]
         ]
         ])
@@ -52,7 +50,6 @@ class FetchQueryTests: XCTestCase {
       "hero": [
         "name": "R2-D2",
         "__typename": "Droid",
-        "optionalString": NSNull()
       ]
     ]
     
@@ -63,8 +60,7 @@ class FetchQueryTests: XCTestCase {
         "data": [
           "hero": [
             "name": "Luke Skywalker",
-            "__typename": "Human",
-            "optionalString": NSNull()
+            "__typename": "Human"
           ]
         ]
         ])
@@ -96,7 +92,6 @@ class FetchQueryTests: XCTestCase {
       "QUERY_ROOT.hero": [
         "name": "R2-D2",
         "__typename": "Droid",
-        "optionalString": NSNull()
       ]
     ]
 
@@ -107,8 +102,7 @@ class FetchQueryTests: XCTestCase {
         "data": [
           "hero": [
             "name": "Luke Skywalker",
-            "__typename": "Human",
-            "optionalString": NSNull()
+            "__typename": "Human"
           ]
         ]
         ])
@@ -136,7 +130,6 @@ class FetchQueryTests: XCTestCase {
       "QUERY_ROOT": ["hero": Reference(key: "hero")],
       "hero": [
         "name": "R2-D2",
-        "optionalString": NSNull()
       ]
     ]
 
@@ -147,8 +140,7 @@ class FetchQueryTests: XCTestCase {
         "data": [
           "hero": [
             "name": "Luke Skywalker",
-            "__typename": "Human",
-            "optionalString": NSNull()
+            "__typename": "Human"
           ]
         ]
         ])
@@ -177,7 +169,6 @@ class FetchQueryTests: XCTestCase {
       "hero": [
         "name": "R2-D2",
         "__typename": "Droid",
-        "optionalString": NSNull()
       ]
     ]
 
@@ -188,8 +179,7 @@ class FetchQueryTests: XCTestCase {
         "data": [
           "hero": [
             "name": "Luke Skywalker",
-            "__typename": "Human",
-            "optionalString": NSNull()
+            "__typename": "Human"
           ]
         ]
         ])
@@ -217,7 +207,6 @@ class FetchQueryTests: XCTestCase {
       "QUERY_ROOT": ["hero": Reference(key: "hero")],
       "hero": [
         "name": "R2-D2",
-        "optionalString": NSNull()
       ]
     ]
 
@@ -228,8 +217,7 @@ class FetchQueryTests: XCTestCase {
         "data": [
           "hero": [
             "name": "Luke Skywalker",
-            "__typename": "Human",
-            "optionalString": NSNull()
+            "__typename": "Human"
           ]
         ]
         ])
@@ -261,8 +249,7 @@ class FetchQueryTests: XCTestCase {
       "data": [
         "hero": [
           "name": "Luke Skywalker",
-          "__typename": "Human",
-          "optionalString": NSNull()
+          "__typename": "Human"
         ]
       ]
     ])

@@ -1,23 +1,50 @@
 //
-// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-// Licensed under the Amazon Software License
-// http://aws.amazon.com/asl/
+//  AWSSigV4HTTPNetworkTransport.swift
+//  AWSAppSyncClient
 //
 
 import Foundation
 import AWSCore
+
+enum AuthType {
+    case awsIAM
+    case apiKey
+    case oidcToken
+    case amazonCognitoUserPools
+}
+
+extension AuthType {
+    var rawValue: String {
+        switch self {
+        case .awsIAM: return "AWS_IAM"
+        case .apiKey: return "API_KEY"
+        case .oidcToken: return "OPENID_CONNECT"
+        case .amazonCognitoUserPools: return "AMAZON_COGNITO_USER_POOLS"
+        }
+    }
+    
+    public static func getAuthType(rawValue: String) throws -> AuthType {
+        switch rawValue {
+        case "AWS_IAM": return .awsIAM
+        case "API_KEY": return .apiKey
+        case "OPENID_CONNECT": return .oidcToken
+        case "AMAZON_COGNITO_USER_POOLS": return .amazonCognitoUserPools
+        default: throw AWSAppSyncClientInfoError(errorMessage: "AuthType not recognized. Pass in a valid AuthType.")
+        }
+    }
+}
 
 public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
     let url: URL
     let session: URLSession
     var region: AWSRegionType? = nil
     let serializationFormat = JSONSerializationFormat.self
-    var credentialsProvider: AWSCredentialsProvider? = nil
+    var credentialsProvider:AWSCredentialsProvider? = nil
     var apiKeyAuthProvider: AWSAPIKeyAuthProvider? = nil
     var userPoolsAuthProvider: AWSCognitoUserPoolsAuthProvider? = nil
     var oidcAuthProvider: AWSOIDCAuthProvider? = nil
-    var endpoint: AWSEndpoint? = nil
-    let authType: AWSAppSyncAuthType
+    var endpoint:AWSEndpoint? = nil
+    let authType: AuthType
     var activeTimers: [String: DispatchSourceTimer] = [:]
     
     /// Creates a network transport with the specified server URL and session configuration.
@@ -34,7 +61,7 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
         self.url = url
         self.session = URLSession(configuration: configuration)
         self.sendOperationIdentifiers = sendOperationIdentifiers
-        self.credentialsProvider = credentialsProvider
+        self.credentialsProvider = credentialsProvider;
         self.region = region
         self.endpoint = AWSEndpoint(region: region, serviceName: "appsync", url: url)
         self.authType = .awsIAM
@@ -98,7 +125,7 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
         request.httpMethod = "POST"
         request.setValue(NSDate().aws_stringValue(AWSDateISO8601DateFormat2), forHTTPHeaderField: "X-Amz-Date")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("aws-sdk-ios/2.10.3 AppSyncClient", forHTTPHeaderField: "User-Agent")
+        request.setValue("aws-sdk-ios/2.7.0 AppSyncClient", forHTTPHeaderField: "User-Agent")
         addDeviceId(request: &request)
     }
     
@@ -112,7 +139,7 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
         }
     }
     
-    func sha256(data: Data) -> String {
+    func sha256(data : Data) -> String {
         let hash = AWSSignatureSignerUtility.hash(data)
         return hash!.base64EncodedString()
     }
@@ -133,18 +160,22 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
         }
     }
     
-    func executeAfter(interval: DispatchTimeInterval, queue: DispatchQueue, block: @escaping () -> Void ) -> DispatchSourceTimer {
+    func executeAfter(milliseconds interval: Int, queue: DispatchQueue, block: @escaping () -> Void ) -> DispatchSourceTimer {
         let timer = DispatchSource.makeTimerSource(flags: DispatchSource.TimerFlags(rawValue: 0), queue: queue)
-        timer.schedule(deadline: .now() + interval)
+        #if swift(>=4)
+            timer.schedule(deadline: .now() + .milliseconds(interval))
+        #else
+            timer.scheduleOneshot(deadline: .now() + .milliseconds(interval))
+        #endif
         timer.setEventHandler(handler: block)
         timer.resume()
         return timer
     }
     
     internal func sendGraphQLRequest(mutableRequest: NSMutableURLRequest,
-                                     retryHandler: AWSAppSyncRetryHandler,
-                                     networkTransportOperation: AWSAppSyncHTTPNetworkTransportOperation,
-                                     completionHandler: @escaping (JSONObject?, AWSAppSyncClientError?) -> Void) {
+                                    retryHandler: AWSAppSyncRetryHandler,
+                                    networkTransportOperation: AWSAppSyncHTTPNetworkTransportOperation,
+                                    completionHandler: @escaping (JSONObject?, AWSAppSyncClientError?) -> Void) {
         updateRequestWithAuthInformation(mutableRequest: mutableRequest, completionHandler: { result in
             switch result {
             case .success:
@@ -154,17 +185,14 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
                         completionHandler(jsonBody, nil)
                     case .failure(let error):
                         let taskUUID = UUID().uuidString
-                        let retryAdvice = retryHandler.shouldRetryRequest(for: error)
-                        if retryAdvice.shouldRetry,
-                            let retryInterval = retryAdvice.retryInterval {
-                            let timer = self?.executeAfter(interval: retryInterval,
-                                                           queue: DispatchQueue.global(qos: .userInitiated)) {
+                        let (shouldRetry, backoffTime) = retryHandler.shouldRetryRequest(for: error)
+                        if shouldRetry, let backoffTime = backoffTime  {
+                            let timer = self?.executeAfter(milliseconds: backoffTime, queue: DispatchQueue.global(qos: .userInitiated), block: {
                                 self?.sendGraphQLRequest(mutableRequest: mutableRequest,
                                                          retryHandler: retryHandler,
-                                                         networkTransportOperation: networkTransportOperation,
-                                                         completionHandler: completionHandler)
+                                                         networkTransportOperation: networkTransportOperation, completionHandler: completionHandler)
                                 self?.activeTimers.removeValue(forKey: taskUUID)
-                            }
+                            })
                             self?.activeTimers[taskUUID] = timer
                         } else {
                             completionHandler(nil, error)
@@ -187,7 +215,7 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
     /// - Returns: URLSessionDataTask cancellable object
     internal func sendNetworkRequest(request: URLRequest, completionHandler: @escaping (Result<JSONObject, AWSAppSyncClientError>) -> Void) -> URLSessionDataTask {
         
-        let dataTask = self.session.dataTask(with: request, completionHandler: { (data: Data?, response: URLResponse?, error: Error?) in
+        let dataTask = self.session.dataTask(with: request, completionHandler: { (data: Data?, response: URLResponse?, error:Error?) in
             
             if let error = error {
                 completionHandler(.failure(AWSAppSyncClientError.requestFailed(data, nil, error)))
@@ -198,7 +226,7 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
                 fatalError("Response should be an HTTPURLResponse")
             }
             
-            if !httpResponse.isSuccessful {
+            if (!httpResponse.isSuccessful) {
                 completionHandler(.failure(AWSAppSyncClientError.requestFailed(data, httpResponse, error)))
 
                 return
@@ -229,14 +257,12 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
     /// Updates the sendRequest with the appropriate authentication parameters
     /// In the case of a token retrieval error, the errorCallback is invoked
     private func updateRequestWithAuthInformation(mutableRequest: NSMutableURLRequest,
-                                                  completionHandler: @escaping (Result<Void, Error>) -> Void) {
+                                                  completionHandler: @escaping (Result<Void, Error>) -> Void) -> Void {
 
         switch self.authType {
             
         case .awsIAM:
-            let signer: AWSSignatureV4Signer = AWSSignatureV4Signer(
-                credentialsProvider: self.credentialsProvider,
-                endpoint: self.endpoint)
+            let signer:AWSSignatureV4Signer = AWSSignatureV4Signer(credentialsProvider: self.credentialsProvider, endpoint: self.endpoint)
             
             signer.interceptRequest(mutableRequest).continueWith { task in
                 if let error = task.error {
@@ -251,20 +277,22 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
             completionHandler(.success(()))
         case .oidcToken:
             if let provider = self.oidcAuthProvider as? AWSOIDCAuthProviderAsync {
-
+            
                 provider.getLatestAuthToken { (token, error) in
                     if let error = error {
                         completionHandler(.failure(error))
-                    } else if let token = token {
+                    }
+                    else if let token = token {
                         mutableRequest.setValue(token, forHTTPHeaderField: "authorization")
                         completionHandler(.success(()))
-                    } else {
+                    }
+                    else {
                         fatalError("Invalid data returned in token callback")
                     }
                 }
             } else if let provider = self.oidcAuthProvider {
-                mutableRequest.setValue(provider.getLatestAuthToken(), forHTTPHeaderField: "authorization")
-                completionHandler(.success(()))
+                 mutableRequest.setValue(provider.getLatestAuthToken(), forHTTPHeaderField: "authorization")
+                 completionHandler(.success(()))
             } else {
                 fatalError("Authentication provider not set")
             }
@@ -274,10 +302,12 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
                 provider.getLatestAuthToken { (token, error) in
                     if let error = error {
                         completionHandler(.failure(error))
-                    } else if let token = token {
+                    }
+                    else if let token = token {
                         mutableRequest.setValue(token, forHTTPHeaderField: "authorization")
                         completionHandler(.success(()))
-                    } else {
+                    }
+                    else {
                         fatalError("Invalid data returned in token callback")
                     }
                 }
@@ -313,7 +343,7 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
         sendGraphQLRequest(mutableRequest: mutableRequest,
                            retryHandler: retryHandler,
                            networkTransportOperation: networkTransportOperation,
-                           completionHandler: completionHandler)
+                           completionHandler:completionHandler)
 
         return networkTransportOperation
     }
@@ -353,11 +383,12 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
         sendGraphQLRequest(mutableRequest: mutableRequest,
                            retryHandler: retryHandler,
                            networkTransportOperation: networkTransportOperation,
-                           completionHandler: completionHandlerInternal)
+                           completionHandler:completionHandlerInternal)
         
         return networkTransportOperation
     }
     
+
     /// Send a GraphQL operation to a server and return a response.
     ///
     /// - Parameters:

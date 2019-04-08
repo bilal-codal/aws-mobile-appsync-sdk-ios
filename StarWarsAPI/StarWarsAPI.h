@@ -1,4 +1,12 @@
-#import <Foundation/Foundation.h>
+//
+//  StarWarsAPI.h
+//  StarWarsAPI
+//
+//  Created by Dubal, Rohan on 9/20/18.
+//  Copyright © 2018 Dubal, Rohan. All rights reserved.
+//
+
+#import <UIKit/UIKit.h>
 
 //! Project version number for StarWarsAPI.
 FOUNDATION_EXPORT double StarWarsAPIVersionNumber;
@@ -7,3 +15,5 @@ FOUNDATION_EXPORT double StarWarsAPIVersionNumber;
 FOUNDATION_EXPORT const unsigned char StarWarsAPIVersionString[];
 
 // In this header, you should import all the public headers of your framework using statements like #import <StarWarsAPI/PublicHeader.h>
+
+

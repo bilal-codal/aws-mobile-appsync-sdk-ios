@@ -7,38 +7,29 @@ import Foundation
 
 extension AWSAppSyncClient {
     
-    func performMutationWithS3Object<Operation: GraphQLMutation>(
-        operation: Operation,
-        s3Object: InternalS3ObjectDetails,
-        conflictResolutionBlock: MutationConflictHandler<Operation>?,
-        handlerQueue: DispatchQueue,
-        resultHandler: OperationResultHandler<Operation>?) {
-
-        s3ObjectManager!.upload(s3Object: s3Object) { success, error in
-            if success {
-                _ = self.send(
-                    operation: operation,
-                    conflictResolutionBlock: conflictResolutionBlock,
-                    handlerQueue: handlerQueue,
-                    resultHandler: resultHandler)
+    func performMutationWithS3Object<Operation: GraphQLMutation>(operation: Operation, s3Object: InternalS3ObjectDetails, conflictResolutionBlock: MutationConflictHandler<Operation>?, dispatchGroup: DispatchGroup, handlerQueue: DispatchQueue, resultHandler: OperationResultHandler<Operation>?) {
+        
+        self.s3ObjectManager!.upload(s3Object: s3Object) { (isSuccessful, error) in
+            if (isSuccessful) {
+                let _ = self.send(operation: operation, context: nil, conflictResolutionBlock: conflictResolutionBlock, dispatchGroup: dispatchGroup, handlerQueue: handlerQueue, resultHandler: resultHandler)
             } else {
-                resultHandler?(nil, error)
+                if let resultHandler = resultHandler {
+                    resultHandler(nil, error)
+                }
             }
         }
     }
+    
+    func performMutationWithS3Object(data: Data, s3Object: InternalS3ObjectDetails, dispatchGroup: DispatchGroup, resultHandler: ((JSONObject?, Error?) -> Void)?) {
 
-    func performMutationWithS3Object(
-        data: Data,
-        s3Object: InternalS3ObjectDetails,
-        resultHandler: ((JSONObject?, Error?) -> Void)?) {
-
-        s3ObjectManager!.upload(s3Object: s3Object) { success, error in
-            if success {
-                self.httpTransport?.send(data: data) { result, error in
-                    resultHandler?(result, error)
+        self.s3ObjectManager!.upload(s3Object: s3Object) { (isSuccessful, error) in
+            if (isSuccessful) {
+                self.httpTransport?.send(data: data) { (result, error) in
                 }
             } else {
-                resultHandler?(nil, error)
+                if let resultHandler = resultHandler {
+                    resultHandler(nil, error)
+                }
             }
         }
     }
